@@ -19,7 +19,9 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 
 from myskoda import MySkoda, Vehicle
 from myskoda.models.common import Vin
+from myskoda.models.driving_score import DrivingScore
 from myskoda.models.event import BaseEvent, OperationEvent, ServiceEvent
+from myskoda.models.info import CapabilityId
 from myskoda.models.user import User
 
 from .const import (
@@ -120,6 +122,7 @@ class MySkodaDataUpdateCoordinator(DataUpdateCoordinator[State]):
         self._mqtt_retry_attempts: int = 0
         self._mqtt_retry_scheduled: bool = False
         self._startup_called: bool = False
+        self.driving_score: DrivingScore | None = None
 
     def _save_fcm_token(self) -> None:
         """Persist the current FCM token if it changed."""
@@ -165,6 +168,15 @@ class MySkodaDataUpdateCoordinator(DataUpdateCoordinator[State]):
 
         self._schedule_mqtt_retry()
 
+    async def _async_update_driving_score(self, vehicle: Vehicle) -> None:
+        """Fetch the driving score if this vehicle supports it."""
+        if not vehicle.has_capability(CapabilityId.DRIVING_SCORE_WITH_BONUS):
+            return
+        try:
+            self.driving_score = await self.myskoda.get_driving_score(self.vin)
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.debug("Driving score not available for %s: %s", self.vin, err)
+
     async def _async_update_data(self) -> State:
         """Called by parent class during setup and scheduled refresh."""
         config = self.data.config if self.data and self.data.config else Config()
@@ -191,6 +203,8 @@ class MySkodaDataUpdateCoordinator(DataUpdateCoordinator[State]):
                 _LOGGER.debug(
                     "Software update status not available for %s: %s", self.vin, err
                 )
+
+            await self._async_update_driving_score(vehicle)
 
             async def _async_finish_startup(hass: HomeAssistant) -> None:
                 """Tasks to execute when we have finished starting up."""
@@ -229,6 +243,9 @@ class MySkodaDataUpdateCoordinator(DataUpdateCoordinator[State]):
             handle_aiohttp_error("vehicle", err, self.hass, self.entry)
         except ClientError as err:
             raise UpdateFailed(f"Error getting update from MySkoda API: {err}") from err
+
+        if self.data and self.data.vehicle:
+            await self._async_update_driving_score(self.data.vehicle)
 
         return State(
             self.data.vehicle,

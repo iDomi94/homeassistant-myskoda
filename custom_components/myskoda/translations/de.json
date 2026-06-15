@@ -136,6 +136,9 @@
             }
         },
         "sensor": {
+            "driving_score": {
+                "name": "Fahrscore"
+            },
             "aux_estimated_time_left_to_reach_target_temperature": {
                 "name": "Heizzeit zum Erreichen der Zieltemperatur"
             },
