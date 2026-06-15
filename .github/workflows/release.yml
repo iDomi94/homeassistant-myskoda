@@ -9,7 +9,7 @@ permissions: {}
 
 jobs:
   release:
-    if: github.repository_owner == 'idomi94'
+    if: github.repository_owner == 'iDomi94'
     name: "Release"
     runs-on: "ubuntu-latest"
     permissions:
