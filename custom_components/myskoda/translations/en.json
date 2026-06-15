@@ -43,6 +43,9 @@
     },
     "entity": {
         "binary_sensor": {
+            "warning_lights": {
+                "name": "Warning Lights"
+            },
             "bonnet_open": {
                 "name": "Bonnet"
             },
@@ -150,9 +153,6 @@
         "sensor": {
             "driving_score": {
                 "name": "Driving Score"
-            },
-            "warning_lights": {
-                "name": "Warning Lights"
             },
             "aux_estimated_time_left_to_reach_target_temperature": {
                 "name": "Heater Time to reach target temperature"
