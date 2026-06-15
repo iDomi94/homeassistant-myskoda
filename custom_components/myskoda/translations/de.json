@@ -129,6 +129,9 @@
             "driving_score": {
                 "name": "Fahrscore"
             },
+            "warning_lights": {
+                "name": "Warnleuchten"
+            },
             "aux_estimated_time_left_to_reach_target_temperature": {
                 "name": "Heizzeit zum Erreichen der Zieltemperatur"
             },
