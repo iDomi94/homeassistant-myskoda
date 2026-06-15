@@ -33,6 +33,7 @@ from myskoda.models.charging import (
     PlugUnlockMode,
 )
 from myskoda.models.driving_range import EngineType
+from myskoda.models.driving_score import DrivingScoreResult
 from myskoda.models.event import OperationStatus
 from myskoda.models.info import CapabilityId
 
@@ -53,6 +54,7 @@ async def async_setup_entry(
         available_entities=[
             AddBlueRange,
             BatteryPercentage,
+            DrivingScoreSensor,
             CampingModeEndsAt,
             ChargeType,
             ChargingPower,
@@ -1032,6 +1034,62 @@ class LastTripAverageFuelConsumption(TripStatisticSensor):
         if stats := self.vehicle.single_trip_statistics:
             if stats.daily_trips and stats.daily_trips[0].trips:
                 return stats.daily_trips[0].trips[0].average_fuel_consumption
+
+
+class DrivingScoreSensor(MySkodaSensor):
+    """Driving score from the MySkoda 'Driving Data' service."""
+
+    entity_description = SensorEntityDescription(
+        key="driving_score",
+        translation_key="driving_score",
+        icon="mdi:medal-outline",
+        state_class=SensorStateClass.MEASUREMENT,
+    )
+
+    def required_capabilities(self) -> list[CapabilityId]:
+        return [CapabilityId.DRIVING_SCORE_WITH_BONUS]
+
+    @property
+    def native_value(self) -> int | None:  # noqa: D102
+        score = self.coordinator.driving_score
+        if score and score.weekly_score:
+            return score.weekly_score.main
+        return None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:  # noqa: D102
+        score = self.coordinator.driving_score
+        if score is None:
+            return {}
+
+        def pack(period: DrivingScoreResult | None) -> dict[str, Any] | None:
+            if period is None:
+                return None
+            return {
+                "main": period.main,
+                "main_bonus": period.main_bonus,
+                "mastered": period.mastered,
+                "braking": period.braking,
+                "in_flow": period.in_flow,
+                "acceleration": period.acceleration,
+                "energy_level": period.energy_level,
+                "excessive_trip": period.excessive_trip,
+                "favorable_conditions": period.favorable_conditions,
+                "average_consumption": period.average_consumption,
+            }
+
+        return {
+            "last_calculation_date": (
+                str(score.last_calculation_date)
+                if score.last_calculation_date
+                else None
+            ),
+            "daily": pack(score.daily_score),
+            "weekly": pack(score.weekly_score),
+            "monthly": pack(score.monthly_score),
+            "quarterly": pack(score.quarterly_score),
+            "mastered_total": score.mastered_total,
+        }
 
 
 class MySkodaChargingProfileSensor(MySkodaChargingProfileEntity, SensorEntity):
