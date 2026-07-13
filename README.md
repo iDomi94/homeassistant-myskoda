@@ -226,8 +226,6 @@ Refer to [docs/design.md](docs/design.md).
 
 Yes. Use the `binary_sensor.<vehicle>_in_motion` entity.
 
-> **Deprecated:** Checking the device tracker state against `vehicle_in_motion` is deprecated and will be removed in a future release. Use the binary sensor instead.
-
 #### Why does toggling a switch make it unavailable?
 See [Operations](#operations-switches-buttons-and-numbers).
 
@@ -259,6 +257,9 @@ Please [join our Discord](https://discord.gg/t7az2hSJXq) and help development by
 You can help us translate your MySkoda integration into your language!
 Just [join our Crowdin project](https://crowdin.com/project/homeassistant-myskoda/invite?h=1c4f8152c707b666f570b9cb68678ece2227331).
 If your desired language is not available, please [open an issue](https://github.com/skodaconnect/homeassistant-myskoda/issues/new/choose) and let us know about it!
+
+## License
+This project is licensed under the [MIT License](LICENSE). The names of the current authors can be found in `pyproject.toml`.
 
 ## Disclaimer
 This Homeassistant integration uses an unofficial API client for the Skoda API and is not affiliated with, endorsed by, or associated with Skoda Auto or any of its subsidiaries.
