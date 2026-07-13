@@ -5,6 +5,8 @@ from homeassistant.components.binary_sensor import (
     BinarySensorEntity,
     BinarySensorEntityDescription,
 )
+from typing import Any
+
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -45,6 +47,7 @@ async def async_setup_entry(
             WindowsOpen,
             TrunkOpen,
             BonnetOpen,
+            WarningLights,
             ParkingLightsOn,
             ChargerConnected,
             ChargerLocked,
@@ -471,3 +474,43 @@ class VehicleBatteryProtection(VehicleConnectionBinarySensor):
     def is_on(self) -> bool | None:
         if cs := self._connection_status():
             return cs.battery_protection_limit_on
+
+
+class WarningLights(MySkodaBinarySensor):
+    """On when the vehicle reports one or more active warning lights."""
+
+    entity_description = BinarySensorEntityDescription(
+        key="warning_lights",
+        translation_key="warning_lights",
+        device_class=BinarySensorDeviceClass.PROBLEM,
+    )
+
+    def required_capabilities(self) -> list[CapabilityId]:
+        return [CapabilityId.VEHICLE_HEALTH_INSPECTION]
+
+    @property
+    def is_on(self) -> bool | None:  # noqa: D102
+        health = self.vehicle.health
+        if health is None:
+            return None
+        return any(light.defects for light in health.warning_lights)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:  # noqa: D102
+        health = self.vehicle.health
+        if health is None or not health.warning_lights:
+            return {}
+        return {
+            "count": sum(len(light.defects) for light in health.warning_lights),
+            "warnings": [
+                {
+                    "category": light.category.value,
+                    "defects": [
+                        {"text": defect.text, "priority": defect.priority}
+                        for defect in light.defects
+                    ],
+                }
+                for light in health.warning_lights
+            ],
+            "captured_at": (str(health.captured_at) if health.captured_at else None),
+        }

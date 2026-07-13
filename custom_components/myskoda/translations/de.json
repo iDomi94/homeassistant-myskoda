@@ -32,6 +32,9 @@
     },
     "entity": {
         "binary_sensor": {
+            "warning_lights": {
+                "name": "Warnleuchten"
+            },
             "bonnet_open": {
                 "name": "Motorhaube"
             },
