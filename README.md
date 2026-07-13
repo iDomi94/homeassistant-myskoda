@@ -5,6 +5,21 @@
 
 # Home Assistant MySkoda Integration :house_with_garden: :satellite: :car:
 
+> [!NOTE]
+> **This is a fork of [skodaconnect/homeassistant-myskoda](https://github.com/skodaconnect/homeassistant-myskoda).**
+> It tracks the upstream project and stays in sync with it, while adding the following extra features:
+>
+> - :medal_sports: **Driving Score Sensor** — Surfaces your MySkoda *Driving Score* directly in Home Assistant. The sensor state shows your current weekly score, and its attributes expose the full breakdown for the daily, weekly, monthly and quarterly periods (main score, bonus, braking, acceleration, in-flow, energy level and more).
+> - :warning: **Warning Lights** — A problem sensor that turns on whenever your vehicle reports one or more active warning lights. Its attributes list every active warning together with its defect details, grouped into the following categories:
+>   - `Assistance`
+>   - `Comfort`
+>   - `Brake`
+>   - `Electric Engine`
+>   - `Engine`
+>   - `Lighting`
+>   - `Tire`
+>   - `Other`
+
 A [Home Assistant](https://www.home-assistant.io/) integration for Skoda vehicles based on the official MySkoda App.
 
 - [Getting Started](#getting-started)
