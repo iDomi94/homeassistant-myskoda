@@ -55,6 +55,7 @@ async def async_setup_entry(
             AddBlueRange,
             BatteryPercentage,
             DrivingScoreSensor,
+            LoyaltyPoints,
             CampingModeEndsAt,
             ChargeType,
             ChargingPower,
@@ -1090,6 +1091,82 @@ class DrivingScoreSensor(MySkodaSensor):
             "quarterly": pack(score.quarterly_score),
             "mastered_total": score.mastered_total,
         }
+
+
+class LoyaltyPoints(MySkodaSensor):
+    """Point balance of the MyŠkoda loyalty program.
+
+    The loyalty program belongs to the account rather than to a single vehicle,
+    so with more than one car in the garage every vehicle device carries its own
+    copy of this sensor, all showing the same account-wide balance.
+    """
+
+    entity_description = SensorEntityDescription(
+        key="loyalty_points",
+        translation_key="loyalty_points",
+        icon="mdi:trophy-outline",
+        state_class=SensorStateClass.MEASUREMENT,
+    )
+
+    def is_supported(self) -> bool:
+        return self.coordinator.has_loyalty_program
+
+    @property
+    def native_value(self) -> int | None:  # noqa: D102
+        loyalty = self.coordinator.loyalty
+        if loyalty is None:
+            return None
+        return loyalty.get("pointBalance")
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:  # noqa: D102
+        loyalty = self.coordinator.loyalty
+        if loyalty is None:
+            return {}
+
+        def pack_challenge(challenge: dict[str, Any]) -> dict[str, Any]:
+            return {
+                "name": challenge.get("name"),
+                "type": challenge.get("type"),
+                "status": challenge.get("status"),
+                "points": challenge.get("points"),
+                "completed_activities": challenge.get("completedActivities"),
+                "total_activities": challenge.get("totalActivities"),
+                "ends_at": challenge.get("endsAt"),
+                "vehicle_name": challenge.get("vehicleName"),
+            }
+
+        daily = loyalty.get("dailyCheckInChallenge") or {}
+        referral = loyalty.get("referralChallenge") or {}
+
+        attributes: dict[str, Any] = {
+            "daily_check_in_collected": loyalty.get("dailyCheckInCollected"),
+            "daily_check_in_streak": daily.get("streakLength"),
+            "daily_check_in_length": daily.get("challengeLength"),
+            "referral_code": loyalty.get("memberReferralCode"),
+            "referral_completed": referral.get("completedActivities"),
+            "referral_total": referral.get("totalActivities"),
+            "in_progress_challenges": [
+                pack_challenge(challenge)
+                for challenge in loyalty.get("inProgressChallenges") or []
+            ],
+        }
+
+        # Weekly driving score challenge: a second, drive-based point mechanism
+        # that sits next to the daily check-in.
+        weekly = loyalty.get("weeklyDrivingScoreChallenges") or []
+        if weekly:
+            current = weekly[0]
+            days = current.get("days") or []
+            attributes["weekly_driving_score"] = {
+                "stage": current.get("stage"),
+                "daily_points": current.get("dailyPoints"),
+                "bonus_points": current.get("bonusPoints"),
+                "days_passed": sum(1 for day in days if day.get("status") == "PASSED"),
+                "days_total": len(days),
+            }
+
+        return attributes
 
 
 class MySkodaChargingProfileSensor(MySkodaChargingProfileEntity, SensorEntity):

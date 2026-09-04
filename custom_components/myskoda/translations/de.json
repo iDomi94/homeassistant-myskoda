@@ -247,6 +247,9 @@
                     "on": "An",
                     "off": "Aus"
                 }
+            },
+            "loyalty_points": {
+                "name": "Treuepunkte"
             }
         },
         "switch": {
@@ -317,6 +320,9 @@
             },
             "wakeup": {
                 "name": "Fahrzeug aufwecken"
+            },
+            "loyalty_daily_check_in": {
+                "name": "Tägliches Einchecken"
             }
         }
     },

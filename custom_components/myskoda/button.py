@@ -36,7 +36,7 @@ async def async_setup_entry(
 ) -> None:
     """Set up the button platform."""
     add_supported_entities(
-        available_entities=[HonkFlash, Flash, WakeUp],
+        available_entities=[HonkFlash, Flash, WakeUp, LoyaltyDailyCheckIn],
         coordinators=config.runtime_data,
         async_add_entities=async_add_entities,
     )
@@ -172,3 +172,31 @@ class WakeUp(MySkodaButton):
             CapabilityId.VEHICLE_WAKE_UP_TRIGGER,
         ]
         return any(self.vehicle.has_capability(cap) for cap in capabilities)
+
+
+class LoyaltyDailyCheckIn(MySkodaButton):
+    """Collect the daily check-in of the MyŠkoda loyalty program.
+
+    Pressing this is the equivalent of tapping the daily challenge in the app.
+    Pressing again on the same day is a no-op, so a daily automation is safe to
+    run even when the check-in was already collected in the app.
+    """
+
+    entity_description = ButtonEntityDescription(
+        key="loyalty_daily_check_in",
+        translation_key="loyalty_daily_check_in",
+        icon="mdi:calendar-check",
+    )
+
+    def is_supported(self) -> bool:
+        return self.coordinator.has_loyalty_program
+
+    @Throttle(timedelta(seconds=API_COOLDOWN_IN_SECONDS))
+    async def async_press(self) -> None:
+        if not self._is_enabled:
+            return  # Ignore presses when disabled
+
+        try:
+            await self._press_button(self.coordinator.async_loyalty_daily_check_in())
+        except ClientResponseError as exc:
+            _LOGGER.error("Failed to collect loyalty daily check-in: %s", exc)

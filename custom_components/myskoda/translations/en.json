@@ -13,7 +13,6 @@
             "unknown": "An unexpected error occurred. Please check the HomeAssistant logfiles and report an issue to the developers.",
             "no_spin": "The S-PIN is missing from configuration. Please reconfigure the integration and try again.",
             "readonly_mode": "Read-only mode enabled. Command operations are disabled."
-
         },
         "step": {
             "reauth_confirm": {
@@ -300,6 +299,9 @@
                     "on": "On",
                     "off": "Off"
                 }
+            },
+            "loyalty_points": {
+                "name": "Loyalty Points"
             }
         },
         "switch": {
@@ -370,6 +372,9 @@
             },
             "wakeup": {
                 "name": "Wake Up Car"
+            },
+            "loyalty_daily_check_in": {
+                "name": "Loyalty Daily Check-in"
             }
         }
     },

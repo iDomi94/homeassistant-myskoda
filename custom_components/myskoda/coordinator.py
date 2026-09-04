@@ -1,5 +1,6 @@
 """Coordinator for the MySkoda integration."""
 
+import json
 import logging
 from collections import OrderedDict, deque
 from collections.abc import Coroutine
@@ -22,7 +23,7 @@ from myskoda.models.common import Vin
 from myskoda.models.driving_score import DrivingScore
 from myskoda.models.event import BaseEvent, OperationEvent, ServiceEvent
 from myskoda.models.info import CapabilityId
-from myskoda.models.user import User
+from myskoda.models.user import User, UserCapabilityId
 
 from .const import (
     API_COOLDOWN_IN_SECONDS,
@@ -123,6 +124,7 @@ class MySkodaDataUpdateCoordinator(DataUpdateCoordinator[State]):
         self._mqtt_retry_scheduled: bool = False
         self._startup_called: bool = False
         self.driving_score: DrivingScore | None = None
+        self.loyalty: dict | None = None
 
     def _save_fcm_token(self) -> None:
         """Persist the current FCM token if it changed."""
@@ -177,6 +179,63 @@ class MySkodaDataUpdateCoordinator(DataUpdateCoordinator[State]):
         except Exception as err:  # noqa: BLE001
             _LOGGER.debug("Driving score not available for %s: %s", self.vin, err)
 
+    @property
+    def has_loyalty_program(self) -> bool:
+        """Whether the account is enrolled in the MySkoda loyalty program."""
+        user = self.data.user if self.data else None
+        if user is None:
+            return False
+        return any(
+            cap.id == UserCapabilityId.LOYALTY_PROGRAM for cap in user.capabilities
+        )
+
+    async def _async_update_loyalty(self, user: User) -> None:
+        """Fetch loyalty program data if this account is enrolled.
+
+        The typed `get_loyalty_program_member` of the myskoda library is not used
+        here: the live response contains challenge types that are missing from its
+        `ChallengeType` enum (e.g. PROLONGATION), which makes deserialization fail.
+        The raw endpoint is read and parsed leniently instead.
+        """
+        if not any(
+            cap.id == UserCapabilityId.LOYALTY_PROGRAM for cap in user.capabilities
+        ):
+            return
+        try:
+            raw = await self.myskoda.rest_api.raw_request(
+                url=f"/v2/loyalty-program/members/{user.id}", method="GET"
+            )
+            self.loyalty = json.loads(raw)
+        except Exception as err:  # noqa: BLE001
+            _LOGGER.debug("Loyalty program data not available: %s", err)
+
+    async def async_loyalty_daily_check_in(self) -> None:
+        """Collect the loyalty program daily check-in.
+
+        Collecting twice on the same day makes the API answer with a 500, so an
+        already collected check-in is skipped. This keeps a daily automation
+        idempotent when the check-in was pressed in the app instead.
+        """
+        user = self.data.user if self.data else None
+        if user is None:
+            _LOGGER.warning("Cannot collect daily check-in, no user data available")
+            return
+
+        if self.loyalty and self.loyalty.get("dailyCheckInCollected"):
+            _LOGGER.debug("Daily check-in already collected today, skipping")
+            return
+
+        # An empty JSON body is sent deliberately: without it aiohttp sends no
+        # Content-Type at all, which the API appears to dislike.
+        await self.myskoda.rest_api.raw_request(
+            url=f"/v2/loyalty-program/members/{user.id}/daily-check-in",
+            method="POST",
+            json={},
+        )
+        _LOGGER.info("Collected loyalty program daily check-in")
+        await self._async_update_loyalty(user)
+        self.async_update_listeners()
+
     async def _async_update_data(self) -> State:
         """Called by parent class during setup and scheduled refresh."""
         config = self.data.config if self.data and self.data.config else Config()
@@ -196,6 +255,7 @@ class MySkodaDataUpdateCoordinator(DataUpdateCoordinator[State]):
                 raise UpdateFailed("Failed to retrieve initial data during setup")
 
             await self._async_update_driving_score(vehicle)
+            await self._async_update_loyalty(user)
 
             async def _async_finish_startup(hass: HomeAssistant) -> None:
                 """Tasks to execute when we have finished starting up."""
@@ -243,6 +303,9 @@ class MySkodaDataUpdateCoordinator(DataUpdateCoordinator[State]):
 
         if self.data and self.data.vehicle:
             await self._async_update_driving_score(self.data.vehicle)
+
+        if self.data and self.data.user:
+            await self._async_update_loyalty(self.data.user)
 
         return State(
             self.data.vehicle,
